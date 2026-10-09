@@ -13,6 +13,8 @@ DEFAULTS = {
         "temperature": 0.2,
         "timeout_seconds": 180,
     },
+    "llm_profiles": {},
+    "active_profile": "",
     "allowed_user_ids": [],
     "admin_user_ids": [],
     "workspace": "./workspace",
@@ -69,7 +71,34 @@ def load_config(path):
 
     cfg["allowed_user_ids"] = [int(x) for x in cfg.get("allowed_user_ids") or []]
     cfg["admin_user_ids"] = [int(x) for x in cfg.get("admin_user_ids") or []]
+    if not isinstance(cfg.get("llm_profiles"), dict):
+        cfg["llm_profiles"] = {}
     return cfg
+
+
+def save_llm_config(cfg, profile_name):
+    """Aktif LLM profilini degistirir: cfg'yi ve config dosyasini gunceller.
+
+    llm alanina profilin kopyasi yazilir; dosyanin geri kalani korunur.
+    Boylece /model ile yapilan gecis bot yeniden baslasa da kalici olur.
+    """
+    profiles = cfg.get("llm_profiles") or {}
+    conf = profiles.get(profile_name)
+    if not conf or not isinstance(conf, dict):
+        raise KeyError("Boyle bir profil yok: %s" % profile_name)
+    conf = dict(conf)
+    cfg["llm"] = conf
+    cfg["active_profile"] = profile_name
+    path = cfg.get("_path") or "config.json"
+    data = {}
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    data["llm"] = conf
+    data["active_profile"] = profile_name
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
 
 def save_allowed_ids(cfg, ids):

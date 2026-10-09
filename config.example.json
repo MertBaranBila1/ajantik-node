@@ -2,11 +2,30 @@
   "telegram_token": "",
 
   "llm": {
-    "base_url": "https://openrouter.ai/api/v1",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
     "api_key": "",
-    "model": "",
+    "model": "gemini-flash-latest",
     "temperature": 0.2,
-    "timeout_seconds": 180
+    "timeout_seconds": 240
+  },
+
+  "active_profile": "ornk-gemini",
+
+  "llm_profiles": {
+    "ornk-gemini": {
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "api_key": "GOOGLE_AI_STUDIO_ANAHTARI",
+      "model": "gemini-flash-latest",
+      "temperature": 0.2,
+      "timeout_seconds": 240
+    },
+    "ornk-openrouter": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key": "OPENROUTER_ANAHTARI",
+      "model": "bir-model:free",
+      "temperature": 0.2,
+      "timeout_seconds": 180
+    }
   },
 
   "allowed_user_ids": [],
@@ -29,8 +48,11 @@
     "max_iterations": 15,
     "command_timeout_seconds": 180,
     "max_history_messages": 30,
-    "block_dangerous_commands": true
+    "block_dangerous_commands": true,
+    "confirm_installs": true
   },
+
+  "github_token": "",
 
   "max_download_mb": 200,
 

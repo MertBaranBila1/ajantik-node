@@ -33,6 +33,10 @@ class TaskRunner(object):
         self._thread.start()
 
     # ------------------------------------------------------------------ #
+    def set_llm(self, conf):
+        """Aktif LLM profilini degistirir (/model komutu ile)."""
+        self.llm = LLMClient(conf)
+
     def enqueue(self, chat_id, user_id, text):
         with self._busy_lock:
             busy = self._busy

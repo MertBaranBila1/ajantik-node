@@ -125,16 +125,28 @@ isteyebilir; şifresiz kullanmak istersen (isteğe bağlı, riski senin):
 
 ## LLM / model bilgisi
 
-- Şu an seçili: `nvidia/nemotron-3-ultra-550b-a55b:free` (OpenRouter,
-  ücretsiz kota). Test edildi, çalışıyor.
-- OpenRouter'ın ücretsiz modellerinde günlük istek sınırı vardır
-  (genelde ~50 istek/gün). Ajan bir görevde 5-15 istek yapabilir; yoğun
-  günlerde sınır dolabilir. Dolduğunda ya o gün beklenir ya da hesabına
-  10$ yükleyip aynı modelin ücretlisine/ucuz bir modele geçilir
-  (`config.json > llm.model` değişir, tek satır).
+Bot **3 model profiliyle** geliyor; hangisinin çalışacağını Telegram'dan
+değiştirirsin (sadece bot sahibi):
+
+- `/model` → profilleri listeler (aktif olan ✅ ile işaretli)
+- `/model gemini-hizli` → o profile geçer (hemen + kalıcı)
+- `/modeltest` → aktif modele kısa bir test mesajı atar
+
+Profiller:
+| Profil | Model | Not |
+|---|---|---|
+| `gemini` | gemini-flash-latest | **Aktif.** Google AI Studio ücretsiz kotası; dengeli ve yetenekli |
+| `gemini-hizli` | gemini-flash-lite-latest | Çok hızlı (basit işler için); aynı ücretsiz kota |
+| `openrouter` | nemotron-3-ultra-550b-a55b:free | Yedek; OpenRouter ücretsiz kotası (günde ~50 istek) |
+
+- Gemini ücretsiz kotada dakikalık/günlük istek sınırları vardır; limit
+  dolarsa bot "LLM hatası" der → `/model` ile başka profile geçersin.
+- `gemini-flash-latest` gibi `-latest` isimli modeller Google model
+  güncellese de otomatik en yeni sürüme işaret eder.
+- Yeni profil eklemek: `config.json > llm_profiles` içine yeni bir blok
+  (base_url + api_key + model) ekle; `/model` listesinde görünür.
 - Tamamen kapalı sistem istersen: güçlü başka bir makinene Ollama kur;
-  `llm.base_url: http://<PC-IP>:11434/v1`, `api_key: ollama`,
-  `model: <model adı>`.
+  profile `base_url: http://<PC-IP>:11434/v1`, `api_key: ollama` yaz.
 
 ## Güvenlik — önemli
 
@@ -153,7 +165,7 @@ isteyebilir; şifresiz kullanmak istersen (isteğe bağlı, riski senin):
 
 | Sorun | Çözüm |
 |---|---|
-| "LLM'e ulaşılamadı" | İnternet çıkışı; `llm` ayarları |
+| "LLM'e ulaşılamadı" | İnternet çıkışı; `/modeltest` ile dene, `/model <profil>` ile diğerine geç |
 | Ücretsiz model "rate limit" hatası | Günlük limit doldu; ertesi gün ya da ücretli model |
 | Bot cevap vermiyor | `journalctl -u ajantik -f` ya da `./run.sh` çıktısı |
 | "⛔ Bu bot sana kapalı" | ID bot sahibine iletilmeli; sahibi `/ekle <id>` yazar |

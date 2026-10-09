@@ -10,7 +10,7 @@ import sys
 import time
 
 from . import __version__
-from .config import load_config, save_allowed_ids
+from .config import load_config, save_allowed_ids, save_llm_config
 from .runner import TaskRunner
 from .telegram_api import TelegramAPI, TelegramError
 from .tools import setup_github_token
@@ -32,6 +32,8 @@ HELP_TEXT = (
     "/ekle <id> — (sadece bot sahibi) yeni kullanici yetkilendirir\n"
     "/sil <id> — (sadece bot sahibi) kullaniciyi yetkisiz birakir\n"
     "/liste — yetkili kullanicilar\n"
+    "/model — (sadece bot sahibi) AI modelini gosterir/degistirir\n"
+    "/modeltest — (sadece bot sahibi) aktif modeli test eder\n"
     "\n"
     "Ornek: \"workspace'deki raporlari zip'le gonder\" veya "
     "\"sunucu durumunu soyle\"."
@@ -49,6 +51,47 @@ def _setup_logging(workspace):
     fh = logging.FileHandler(os.path.join(log_dir, "ajantik.log"), encoding="utf-8")
     fh.setFormatter(fmt)
     log.addHandler(fh)
+
+
+def _model_list_text(cfg):
+    """Profil listesini okunur metin olarak dondurur."""
+    profiles = cfg.get("llm_profiles") or {}
+    active = cfg.get("active_profile") or ""
+    satirlar = []
+    aktif_model = (cfg.get("llm") or {}).get("model") or "?"
+    satirlar.append("🧠 Aktif model: %s (%s)" % (active or "(isimsiz)", aktif_model))
+    satirlar.append("")
+    satirlar.append("Profiller:")
+    for ad in sorted(profiles):
+        m = (profiles[ad] or {}).get("model") or "?"
+        isaret = " ✅ (aktif)" if ad == active else ""
+        satirlar.append("- %s — %s%s" % (ad, m, isaret))
+    satirlar.append("")
+    satirlar.append("Geçmek için: /model <profil-adı>")
+    satirlar.append("Test için: /modeltest")
+    return "\n".join(satirlar)
+
+
+def _test_llm_async(tg, chat_id, llm, name):
+    """Aktif LLM'e kisa bir ping atar; sonucu sohbete yazar (thread'de)."""
+    import threading
+
+    def run():
+        try:
+            import time as _t
+            t0 = _t.time()
+            cevap = llm.chat([{"role": "user", "content": "Tek kelime yaz: OK"}])
+            sure = _t.time() - t0
+            tg.send_message(
+                chat_id,
+                "✅ %s çalışıyor (%.1f sn yanıt): %s"
+                % (name, sure, (cevap or "").strip()[:100]),
+            )
+        except Exception as e:
+            tg.send_message(chat_id, "❌ %s hatası: %s" % (name, e))
+
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
 
 
 def _cmd_of(text):
@@ -220,7 +263,46 @@ def main(argv=None):
                 log.info("Yetkisiz erisim: user_id=%s username=%s", user_id, user.get("username"))
                 continue
 
-            # Bot sahibi komutlari: /ekle /sil /liste
+            # Bot sahibi komutlari: /ekle /sil /liste /model /modeltest
+            if cmd in ("/model", "/modeltest"):
+                if user_id not in admins:
+                    tg.send_message(chat_id, "⛔ Bu komut sadece bot sahibine acik.")
+                    continue
+                profiles = cfg.get("llm_profiles") or {}
+                active = cfg.get("active_profile") or ""
+                if cmd == "/modeltest":
+                    tg.send_message(
+                        chat_id,
+                        "🧪 Aktif model test ediliyor: %s" % (active or cfg.get("llm", {}).get("model", "?")),
+                    )
+                    _test_llm_async(tg, chat_id, runner.llm, active or "aktif")
+                    continue
+                parca = text.split()
+                if len(parca) == 1:
+                    tg.send_message(chat_id, _model_list_text(cfg))
+                    continue
+                ad = parca[1].lower()
+                if ad not in profiles:
+                    tg.send_message(
+                        chat_id,
+                        "Boyle bir profil yok: %s\n\n%s" % (ad, _model_list_text(cfg)),
+                    )
+                    continue
+                if ad == active:
+                    tg.send_message(chat_id, "%s zaten aktif." % ad)
+                    continue
+                try:
+                    save_llm_config(cfg, ad)
+                    runner.set_llm(cfg["llm"])
+                    tg.send_message(
+                        chat_id,
+                        "✅ Model değişti: %s (%s)\nYeni görevler artık bununla çalışır."
+                        % (ad, cfg["llm"].get("model")),
+                    )
+                except Exception as e:
+                    tg.send_message(chat_id, "❌ Model değiştirilemedi: %s" % e)
+                continue
+
             cevap = _admin_command(text, cfg, allowed, admins, user_id)
             if cevap is not None:
                 tg.send_message(chat_id, cevap)
