@@ -1,0 +1,36 @@
+{
+  "telegram_token": "",
+
+  "llm": {
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": "",
+    "model": "",
+    "temperature": 0.2,
+    "timeout_seconds": 180
+  },
+
+  "allowed_user_ids": [],
+
+  "workspace": "./workspace",
+
+  "allowed_dirs": [],
+
+  "ssh_hosts": {
+    "ornk-sunucu": {
+      "user": "root",
+      "host": "192.168.1.50",
+      "port": 22
+    }
+  },
+
+  "agent": {
+    "max_iterations": 15,
+    "command_timeout_seconds": 180,
+    "max_history_messages": 30,
+    "block_dangerous_commands": true
+  },
+
+  "max_download_mb": 200,
+
+  "personality": ""
+}

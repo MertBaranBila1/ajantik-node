@@ -1,0 +1,15 @@
+[Unit]
+Description=Ajantik Node - kisisel gorev ajani
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Proje klasorunu /opt/ajantik-node'a kopyaladiysan bu haliyle calisir.
+# Baska yerdeyse asagidaki yollari kendine gore degistir.
+WorkingDirectory=/opt/ajantik-node
+ExecStart=/opt/ajantik-node/venv/bin/python -m ajantik /opt/ajantik-node/config.json
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+venv/
+config.json
+workspace/
+__pycache__/
+*.pyc
+logs/
+*.log
