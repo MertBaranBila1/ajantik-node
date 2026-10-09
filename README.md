@@ -159,6 +159,7 @@ isteyebilir; şifresiz kullanmak istersen (isteğe bağlı, riski senin):
 | "⛔ Bu bot sana kapalı" | ID bot sahibine iletilmeli; sahibi `/ekle <id>` yazar |
 | GitHub'a push hata veriyor | `github_connect` ile tekrar bağlan; token süresi bitmiş olabilir |
 | Dosya gönderilemedi | 50MB sınırı; dosyayı böl ya da linkle |
+| `venv/bin/pip: Böyle bir dosya ya da dizin yok` | Debian'da `python3-venv` paketi eksik. Çöz: `rm -rf venv && sudo apt update && sudo apt install -y python3-venv && bash install.sh` |
 | Onay butonu geldi, dokunmadım | 5 dk sonra otomatik reddedilir |
 
 ## Teknik
