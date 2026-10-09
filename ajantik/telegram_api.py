@@ -64,6 +64,22 @@ class TelegramAPI(object):
     def get_me(self):
         return self._call("getMe")
 
+    def get_webhook_info(self):
+        """Mevcut webhook bilgisini dondurur (url, pending_update_count...)."""
+        return self._call("getWebhookInfo") or {}
+
+    def delete_webhook(self, drop_pending=False):
+        """Webhook'u siler (bot polling moduna gecer).
+
+        drop_pending=True: henuz teslim edilmemis mesajlari da dusurur
+        (bulut modundan donerken, bulutun cevapladigi mesajlarin tekrar
+        islenmesini onler).
+        """
+        data = {}
+        if drop_pending:
+            data["drop_pending_updates"] = "true"
+        return self._call("deleteWebhook", data=data)
+
     def get_updates(self, offset=0, timeout=30):
         data = {
             "offset": offset,

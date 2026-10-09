@@ -122,6 +122,33 @@ kısayolu da koyar (servis yoksa/durdurulduysa çift tıkla çalıştırırsın)
 komutlarını gösterir (Telegram aynı anda iki yerden çalışınca 409 hatası
 verir; bu koruma onu önler).
 
+## ☁️ Bulut modu — laptop kapalıyken de yazılı cevap
+
+Laptop kapalıyken bile bot yazılı sorulara cevap verebilir. "Ajantik
+Cloud" adlı minik bulut kopyası (Netlify'da ücretsiz) devreye girer;
+dosya/uygulama işleri yine laptop ister.
+
+**Geçiş tamamen otomatik:**
+- Laptop **açılınca**: ajan açılışta webhook'u geri alır, tam kapasite çalışır
+- Laptop **kapanırken**: servis kapanmadan mesajları buluta yönlendirir
+  (`cloud_webhook_url` config'de tanımlıysa)
+
+**Kurulum (bir kere, ~5 dk):** `ajantik-cloud` reposunu Netlify'a bağla,
+3 anahtarı gir, çıkan adresi laptop'un `config.json`'ına yaz. Detaylı adımlar:
+[github.com/MertBaranBila1/ajantik-cloud](https://github.com/MertBaranBila1/ajantik-cloud)
+(repo README'sinde).
+
+Elle geçiş komutları (laptop'ta):
+```bash
+./venv/bin/python -m ajantik.webhook durumu   # şu an kimde?
+./venv/bin/python -m ajantik.webhook on       # buluta devret
+./venv/bin/python -m ajantik.webhook off      # laptop'a al
+```
+
+Notlar: bulut modunda sohbet hafızası yoktur; ani elektrik kesintisinde
+laptop düzgün kapanamadığından buluta geçiş yapılamaz (bot bir süre sessiz
+kalır, laptop açılınca düzelir).
+
 ## GitHub bağlama (site tamiri için)
 
 Ajan, GitHub'daki dosyaları düzenleyip push'layabilmek için bir kez

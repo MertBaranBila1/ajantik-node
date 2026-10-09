@@ -30,6 +30,9 @@ DEFAULTS = {
     "github_token": "",
     "max_download_mb": 200,
     "personality": "",
+    # Bulut modu: laptop kapaliyken mesajlarin yonlendirilecegi webhook
+    # adresi (Netlify function). Bos ise bulut modu kapalidir.
+    "cloud_webhook_url": "",
 }
 
 

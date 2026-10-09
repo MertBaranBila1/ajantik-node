@@ -54,6 +54,51 @@ def _setup_logging(workspace):
     log.addHandler(fh)
 
 
+def _ensure_polling(tg):
+    """Webhook setliyse siler; laptop polling moduna gecer.
+
+    Bulut modundan donuste bekleyen mesajlar bulut tarafindan cevaplanmis
+    olabileceginden drop_pending_updates=True kullanilir (tekrar islenmesin).
+    Ayrica webhook setliyken getUpdates hata verdiginden, bu cagri olmaksizin
+    polling hic baslamaz.
+    """
+    try:
+        info = tg.get_webhook_info() or {}
+    except TelegramError as e:
+        log.warning("getWebhookInfo hatasi: %s", e)
+        return
+    url = (info.get("url") or "").strip()
+    if not url:
+        log.info("Webhook yok; laptop polling modunda (normal).")
+        return
+    try:
+        tg.delete_webhook(drop_pending=True)
+        log.info("Bulut webhook'u silindi; laptop polling moduna gecti.")
+    except TelegramError as e:
+        log.warning("deleteWebhook hatasi: %s", e)
+
+
+def _load_offset(path):
+    """Son islenen Telegram update offsetini okur (restart korumasi).
+
+    Offset kalici olmadiginda her acilista son 24 saatin mesajlari bastan
+    islenirdi; bu dosya onu onler.
+    """
+    try:
+        with open(path, "r") as f:
+            return int((f.read() or "0").strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def _save_offset(path, offset):
+    try:
+        with open(path, "w") as f:
+            f.write(str(offset))
+    except OSError:
+        pass
+
+
 def _klasor_command(text, cfg, admins, user_id):
     """Bot sahibi icin klasor izni yonetimi. Donus: cevap metni ya da None.
 
@@ -239,6 +284,9 @@ def main(argv=None):
         print("HATA: Telegram'a baglanilamadi: %s" % e)
         sys.exit(1)
 
+    # Bulut modundan donus: webhook varsa sil, laptop polling'e gecer.
+    _ensure_polling(tg)
+
     runner = TaskRunner(cfg, tg)
     allowed = set(cfg.get("allowed_user_ids") or [])
     admins = set(cfg.get("admin_user_ids") or [])
@@ -264,7 +312,8 @@ def main(argv=None):
         cfg["workspace"],
     )
 
-    offset = 0
+    offset_path = os.path.join(cfg["workspace"], "logs", "offset.txt")
+    offset = _load_offset(offset_path)
     while True:
         try:
             updates = tg.get_updates(offset)
@@ -403,6 +452,10 @@ def main(argv=None):
                 continue
 
             runner.enqueue(chat_id, user_id, text)
+
+        # Islenen batch'in offsetini diske yaz (restart korumasi)
+        if updates:
+            _save_offset(offset_path, offset)
 
 
 if __name__ == "__main__":

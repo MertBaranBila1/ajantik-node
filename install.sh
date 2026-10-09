@@ -104,6 +104,7 @@ Type=simple
 User=$USER
 WorkingDirectory=$KLASOR
 ExecStart=$KLASOR/venv/bin/python -m ajantik $KLASOR/config.json
+ExecStopPost=$KLASOR/venv/bin/python -m ajantik.webhook on $KLASOR/config.json
 Restart=always
 RestartSec=15
 

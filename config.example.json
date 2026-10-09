@@ -56,5 +56,7 @@
 
   "max_download_mb": 200,
 
-  "personality": ""
+  "personality": "",
+
+  "cloud_webhook_url": ""
 }
