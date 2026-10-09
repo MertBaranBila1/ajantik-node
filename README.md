@@ -102,15 +102,25 @@ Telegram'da **Evet/Hayır** gönderir. Ek olarak, kurulum sırasında
 
 Telefonda botuna yaz: `/start`. Bitti 🎉
 
-**Otomatik başlangıç (açılışta):**
+**Bilgisayar açılınca otomatik başlasın (arka planda):**
+Kurulumda `install.sh` 2. soruda sorar: "Bilgisayar açıldığında ajan
+otomatik (arka planda) başlasın mı?" → **E** de. systemd servisi kurulur:
+- Açılışta kimse dokunmadan arka planda çalışır
+- Çökerse 15 saniyede kendini yeniden başlatır
+- Yönetim: `sudo systemctl status|stop|restart ajantik`
+- Loglar: `journalctl -u ajantik -f`
 
+Elle kurmak/kaldırmak istersen:
 ```bash
-sudo cp -r . /opt/ajantik-node
-sudo cp /opt/ajantik-node/ajantik.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now ajantik
-journalctl -u ajantik -f   # log takibi
+sudo systemctl disable --now ajantik   # otomatik başlatmayı kaldır
+sudo systemctl enable --now ajantik    # tekrar kur
 ```
+
+**Tek tıkla başlatma:** Kurulum, Masaüstü'ne "Ajantik Botu Başlat"
+kısayolu da koyar (servis yoksa/durdurulduysa çift tıkla çalıştırırsın).
+`./run.sh` ise akıllıdır: servis zaten çalışıyorsa çakıştırmaz, yönetim
+komutlarını gösterir (Telegram aynı anda iki yerden çalışınca 409 hatası
+verir; bu koruma onu önler).
 
 ## GitHub bağlama (site tamiri için)
 
@@ -190,7 +200,8 @@ Profiller:
 |---|---|
 | "LLM'e ulaşılamadı" | İnternet çıkışı; `/modeltest` ile dene, `/model <profil>` ile diğerine geç |
 | Ücretsiz model "rate limit" hatası | Günlük limit doldu; ertesi gün ya da ücretli model |
-| Bot cevap vermiyor | `journalctl -u ajantik -f` ya da `./run.sh` çıktısı |
+| Bot cevap vermiyor | Önce `systemctl status ajantik` (servis kuruluysa) ya da `./run.sh` çıktısı; log: `journalctl -u ajantik -n 30` |
+| Telegram "409 Conflict" | Bot iki yerden aynı anda çalışıyor; birini kapat (`./run.sh` bunu otomatik önler) |
 | "⛔ Bu bot sana kapalı" | ID bot sahibine iletilmeli; sahibi `/ekle <id>` yazar |
 | Ajan "güvenlik gereği erişemiyorum" diyor | Yeniden denesin (eski sürüm huyuydu, v1.4'te prompt'a yasak kondu). Gerçek "izin yok" ise `/klasor ekle <yol>` |
 | Ajan bir klasöre "izin yok" diyor | `/klasor ekle <yol>` ile izin ver |

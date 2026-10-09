@@ -4,6 +4,7 @@
 
 set -e
 cd "$(dirname "$0")"
+KLASOR="$(pwd)"
 
 echo "== Ajantik Node kurulumu =="
 
@@ -58,36 +59,111 @@ else
 fi
 
 echo ""
-echo "NOT: Calisma alani (workspace) config.json'daki ayara gore olusur:"
-echo "$('grep' -o '"workspace": "[^"]*"' config.json 2>/dev/null | head -1 | cut -d'"' -f4 || echo './workspace')"
-echo "Bot ilk acilista bu klasoru ve alt klasorlerini otomatik olusturur."
+echo "NOT: Calisma alani (workspace) config.json'daki ayara gore olusur."
+echo "Bot ilk acilista 'Masaustu/Ajan Klasoru' ve alt klasorlerini olusturur."
 
 # -------------------------------------------------------------------- #
-# Opsiyonel: ajanin apt ile uygulama kurup kaldirabilmesi
-# (Telegram'daki Evet/Hayir onay sistemi her durumda aktif kalir)
+# 1) Opsiyonel: sifresiz apt (uygulama kurma/silme)
 # -------------------------------------------------------------------- #
 if [ -t 0 ]; then
     echo ""
-    echo "Ajanin 'apt' ile uygulama kurup kaldirabilmesi icin sifresiz"
-    echo "apt yetkisi vermek ister misin? (E/h)"
+    echo "1) Ajanin 'apt' ile uygulama kurup kaldirabilmesi icin sifresiz"
+    echo "   apt yetkisi vermek ister misin? (E/h)"
     read -r cevap || cevap="h"
     case "$cevap" in
         [Ee]*)
             if echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get" | sudo tee /etc/sudoers.d/ajantik-apt >/dev/null 2>&1; then
-                sudo chmod 440 /etc/sudoers.d/ajantik-apt 2>/dev/null
-                echo "OK: Verildi. Ajan artik apt komutlarini sorunsuz calistirabilir."
+                sudo chmod 440 /etc/sudoers.d/ajantik-apt 2>/dev/null || true
+                echo "   OK: Verildi."
             else
-                echo "UYARI: Verilemedi (sudo hata verdi). Ajan apt icin sudo sifresi isteyecek."
-                echo "Istersen sonra elle ekle:"
-                echo "  echo \"$USER ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get\" | sudo tee /etc/sudoers.d/ajantik-apt"
-                echo "  sudo chmod 440 /etc/sudoers.d/ajantik-apt"
+                echo "   UYARI: Verilemedi; sonra elle ekleyebilirsin (README'ye bak)."
             fi
             ;;
-        *) echo "Atlandi. Ajan apt komutlarinda sudo sifresi isteyecek." ;;
+        *)
+            echo "   Atlandi."
+            ;;
     esac
+
+    # ---------------------------------------------------------------- #
+    # 2) Opsiyonel: bilgisayar acilinca otomatik baslatma (arka plan)
+    # ---------------------------------------------------------------- #
+    echo ""
+    echo "2) Bilgisayar acildiginda ajan otomatik (arka planda) baslasin mi? (E/h)"
+    read -r cevap || cevap="h"
+    case "$cevap" in
+        [Ee]*)
+            SRVFILE="$(mktemp)"
+            cat > "$SRVFILE" <<EOF
+[Unit]
+Description=Ajantik Node - kisisel gorev ajani
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$KLASOR
+ExecStart=$KLASOR/venv/bin/python -m ajantik $KLASOR/config.json
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
+EOF
+            if sudo install -m 644 "$SRVFILE" /etc/systemd/system/ajantik.service 2>/dev/null \
+               && sudo systemctl daemon-reload \
+               && sudo systemctl enable ajantik >/dev/null 2>&1 \
+               && sudo systemctl start ajantik; then
+                sleep 2
+                if systemctl is-active --quiet ajantik; then
+                    echo "   OK: Servis kuruldu ve CALISIYOR."
+                    echo "   - Bilgisayar acilinca otomatik baslar (hiçbir şeye basmana gerek yok)."
+                    echo "   - Yonetim: sudo systemctl status|stop|restart ajantik"
+                    echo "   - Loglar:  journalctl -u ajantik -f"
+                else
+                    echo "   UYARI: Servis kuruldu ama baslamadi. Loglar:"
+                    echo "   journalctl -u ajantik -n 30"
+                fi
+            else
+                echo "   UYARI: Servis kurulamadi (sudo/systemctl sorunu)."
+                echo "   Botu elle baslatabilirsin:  ./run.sh"
+            fi
+            rm -f "$SRVFILE"
+            ;;
+        *)
+            echo "   Atlandi. Botu elle baslatmak icin: ./run.sh"
+            ;;
+    esac
+fi
+
+# -------------------------------------------------------------------- #
+# Masaustu kisayolu (masaustu varsa sessizce olustur; tek tikla baslatma)
+# -------------------------------------------------------------------- #
+DT=""
+for d in "$HOME/Masaüstü" "$HOME/Masaustu" "$HOME/Desktop"; do
+    if [ -d "$d" ]; then
+        DT="$d"
+        break
+    fi
+done
+if [ -n "$DT" ]; then
+    cat > "$DT/Ajantik-Baslat.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Ajantik Botu Başlat
+Comment=Telegram ajanını başlatır (arka plan servisi yoksa)
+Exec="$KLASOR/run.sh"
+Terminal=true
+Categories=Utility;
+EOF
+    chmod +x "$DT/Ajantik-Baslat.desktop" 2>/dev/null || true
+    echo ""
+    echo "Masaustune kisayolu olusturuldu: 'Ajantik Botu Baslat'"
+    echo "(Servis kurulmussa buna ihtiyacin olmaz; cift tik acilmazsa sag tik -> 'Launch'/'Izin ver')"
 fi
 
 echo ""
 echo "== Kurulum tamam =="
-echo "1) config.json dosyasini doldur (bkz. README.md)"
-echo "2) Baslatmak icin:  ./run.sh"
+if [ -t 0 ]; then
+    echo "Botu elle baslatmak istersen:  ./run.sh"
+fi
