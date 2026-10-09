@@ -10,7 +10,7 @@ import sys
 import time
 
 from . import __version__
-from .config import load_config, save_allowed_ids, save_llm_config
+from .config import load_config, save_allowed_ids, save_allowed_dirs, save_llm_config
 from .runner import TaskRunner
 from .telegram_api import TelegramAPI, TelegramError
 from .tools import setup_github_token
@@ -34,6 +34,7 @@ HELP_TEXT = (
     "/liste — yetkili kullanicilar\n"
     "/model — (sadece bot sahibi) AI modelini gosterir/degistirir\n"
     "/modeltest — (sadece bot sahibi) aktif modeli test eder\n"
+    "/klasor — (sadece bot sahibi) klasor izinlerini yonetir (/klasor ekle <yol>)\n"
     "\n"
     "Ornek: \"workspace'deki raporlari zip'le gonder\" veya "
     "\"sunucu durumunu soyle\"."
@@ -51,6 +52,61 @@ def _setup_logging(workspace):
     fh = logging.FileHandler(os.path.join(log_dir, "ajantik.log"), encoding="utf-8")
     fh.setFormatter(fmt)
     log.addHandler(fh)
+
+
+def _klasor_command(text, cfg, admins, user_id):
+    """Bot sahibi icin klasor izni yonetimi. Donus: cevap metni ya da None.
+
+    /klasor            -> izinli klasorleri listeler
+    /klasor ekle <yol> -> kalici izin verir
+    /klasor sil <yol>  -> izni kaldirir
+    """
+    parts = text.split()
+    cmd = (parts[0] if parts else "").split("@")[0].lower()
+    if cmd != "/klasor":
+        return None
+    if user_id not in admins:
+        return "⛔ Bu komut sadece bot sahibine acik."
+    dirs = cfg.get("allowed_dirs") or []
+
+    if len(parts) == 1:
+        if not dirs:
+            return ("Izinli ekstra klasor yok (ajan sadece workspace icinde calisir).\n"
+                    "Eklemek icin: /klasor ekle /home/asus/Belgeler")
+        return ("📂 Izinli klasorler:\n" + "\n".join("- " + d for d in dirs)
+                + "\n\nCikarmak icin: /klasor sil <yol>")
+
+    alt = parts[1].lower()
+    if alt not in ("ekle", "sil", "kaldir"):
+        return "Kullanim:\n/klasor ekle <yol>\n/klasor sil <yol>\n/klasor (liste)"
+
+    if len(parts) < 3:
+        return "Yol eksik. Ornek: /klasor ekle /home/asus/Belgeler"
+    yol = " ".join(parts[2:])
+    yol = os.path.expanduser(yol)
+    if not os.path.isabs(yol):
+        return "Lutfen tam yol yaz. Ornek: /home/asus/Belgeler (ya da ~/Belgeler)"
+
+    if alt == "ekle":
+        if yol in dirs:
+            return "%s zaten izinli." % yol
+        if not os.path.isdir(yol):
+            return "Boyle bir klasor yok: %s\n(yolu kontrol et)" % yol
+        dirs.append(yol)
+        try:
+            save_allowed_dirs(cfg, dirs)
+            return "✅ %s eklendi; ajan artik burada calisabilir." % yol
+        except Exception as e:
+            return "⚠️ Bellekte eklendi ama config'e yazilamadi: %s" % e
+    # sil
+    if yol not in dirs:
+        return "%s izin listesinde yok." % yol
+    dirs.remove(yol)
+    try:
+        save_allowed_dirs(cfg, dirs)
+        return "❌ %s izni kaldirildi." % yol
+    except Exception as e:
+        return "⚠️ Bellekten cikarildi ama config'e yazilamadi: %s" % e
 
 
 def _model_list_text(cfg):
@@ -301,6 +357,11 @@ def main(argv=None):
                     )
                 except Exception as e:
                     tg.send_message(chat_id, "❌ Model değiştirilemedi: %s" % e)
+                continue
+
+            cevap = _klasor_command(text, cfg, admins, user_id)
+            if cevap is not None:
+                tg.send_message(chat_id, cevap)
                 continue
 
             cevap = _admin_command(text, cfg, allowed, admins, user_id)

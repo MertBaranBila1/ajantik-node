@@ -68,6 +68,32 @@ Bu komutları sadece bot sahibi (`admin_user_ids`) kullanabilir.
 Yeni kullanıcıyı elle de ekleyebilirsin: `config.json > allowed_user_ids`
 listesine ID'yi yaz.
 
+## Çalışma alanı ve klasör izinleri
+
+- Ajanın çalışma alanı (workspace): **`Masaüstü/Ajan Klasörü`** — bot ilk
+  açılışta kendisi oluşturur. Klonladığı repolar, ürettiği çıktılar,
+  indirdiği dosyalar hep burada toplanır.
+- Ajan ayrıca şu klasörlere erişebilir: **Masaüstü (tamamı)** ve
+  **İndirilenler**.
+- Yeni klasör izni vermek (telefonundan, bot sahibi olarak):
+  - `/klasor` → izinli klasörleri listeler
+  - `/klasor ekle /home/asus/Belgeler` → kalıcı izin verir
+  - `/klasor sil <yol>` → izni kaldırır
+- Ajan bir yolda "izin yok" hatası alırsa sana söyler ve bu komutu
+  hatırlatır.
+
+## Uygulama kurma/silme (apt)
+
+Ajan `apt install/remove` gibi komutları çalıştırmadan önce sana
+Telegram'da **Evet/Hayır** gönderir. Ek olarak, kurulum sırasında
+`install.sh` sana "şifresiz apt yetkisi vereyim mi?" diye sorar:
+- **E** dersen: sadece `apt`/`apt-get` komutları sudo şifresi istemez
+  (sudoers.d/ajantik-apt dosyası). Telegram onayı yine devam eder —
+  yani çifte kontrol: senin onayın + şifresiz apt.
+- **h** dersen: ajan apt komutlarında sudo şifresi yüzünden takılır;
+  sonra elle de verebilirsin:
+  `echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get" | sudo tee /etc/sudoers.d/ajantik-apt && sudo chmod 440 /etc/sudoers.d/ajantik-apt`
+
 ### 3) Çalıştır
 
 ```bash
@@ -117,11 +143,8 @@ butonu gönderir: `apt`, `pip install`, `npm install`, `sudo ...`,
 `systemctl ...` gibi. Onaylamazsan çalışmaz. Kapatmak istersen config'de
 `agent.confirm_installs: false` yap.
 
-İpucu: Ajan `sudo apt install ...` gibi komutlarda sudo şifresi
-isteyebilir; şifresiz kullanmak istersen (isteğe bağlı, riski senin):
-`sudo visudo` ile en alta şunu ekle:
-`ajantik-kullanici ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get`
-(kullanıcı adını kendi kullanıcı adınla değiştir).
+İpucu: kurulum sırasında `install.sh` bunu otomatik sorar (E/h); el ile
+vermek istersen:
 
 ## LLM / model bilgisi
 
@@ -169,6 +192,8 @@ Profiller:
 | Ücretsiz model "rate limit" hatası | Günlük limit doldu; ertesi gün ya da ücretli model |
 | Bot cevap vermiyor | `journalctl -u ajantik -f` ya da `./run.sh` çıktısı |
 | "⛔ Bu bot sana kapalı" | ID bot sahibine iletilmeli; sahibi `/ekle <id>` yazar |
+| Ajan "güvenlik gereği erişemiyorum" diyor | Yeniden denesin (eski sürüm huyuydu, v1.4'te prompt'a yasak kondu). Gerçek "izin yok" ise `/klasor ekle <yol>` |
+| Ajan bir klasöre "izin yok" diyor | `/klasor ekle <yol>` ile izin ver |
 | GitHub'a push hata veriyor | `github_connect` ile tekrar bağlan; token süresi bitmiş olabilir |
 | Dosya gönderilemedi | 50MB sınırı; dosyayı böl ya da linkle |
 | `venv/bin/pip: Böyle bir dosya ya da dizin yok` | Debian'da `python3-venv` paketi eksik. Çöz: `rm -rf venv && sudo apt update && sudo apt install -y python3-venv && bash install.sh` |

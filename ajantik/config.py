@@ -76,6 +76,23 @@ def load_config(path):
     return cfg
 
 
+def save_allowed_dirs(cfg, dirs):
+    """Izinli klasorleri (allowed_dirs) config dosyasina kalici yazar.
+
+    cfg["allowed_dirs"] da guncellenir; dosyanin geri kalani korunur.
+    """
+    cfg["allowed_dirs"] = list(dirs)
+    path = cfg.get("_path") or "config.json"
+    data = {}
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    data["allowed_dirs"] = list(dirs)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
 def save_llm_config(cfg, profile_name):
     """Aktif LLM profilini degistirir: cfg'yi ve config dosyasini gunceller.
 
