@@ -14,6 +14,7 @@ DEFAULTS = {
         "timeout_seconds": 180,
     },
     "allowed_user_ids": [],
+    "admin_user_ids": [],
     "workspace": "./workspace",
     "allowed_dirs": [],
     "ssh_hosts": {},
@@ -67,4 +68,22 @@ def load_config(path):
     cfg["allowed_dirs"] = roots
 
     cfg["allowed_user_ids"] = [int(x) for x in cfg.get("allowed_user_ids") or []]
+    cfg["admin_user_ids"] = [int(x) for x in cfg.get("admin_user_ids") or []]
     return cfg
+
+
+def save_allowed_ids(cfg, ids):
+    """Yetkili kullanici listesini config dosyasina kalici yazar.
+
+    Sadece allowed_user_ids alani guncellenir; config'in geri kalanina
+    dokunulmaz (kullanicinin elle yazdigi diger ayarlar korunur).
+    """
+    path = cfg.get("_path") or "config.json"
+    data = {}
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    data["allowed_user_ids"] = sorted(int(x) for x in ids)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")

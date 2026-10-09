@@ -50,20 +50,23 @@ bash install.sh
 
 (Zip kullandıysan zip'i aç, klasöre gir, `bash install.sh`.)
 
-### 2) Kendini tanıt (allowed_user_ids)
+### 2) Kullanıcıları tanı (allowed_user_ids)
 
-Bot sadece listedeki Telegram kullanıcılarını dinler. ID'ni bulmanın
-2 kolay yolu:
+Bot sadece listedeki Telegram kullanıcılarını dinler. Senin ID'n
+(`708331817`) bu pakette zaten kayıtlı — botu sen direkt kullanabilirsin.
 
-**Yol A (bot çalışmadan):** Telegram'da `@userinfobot`'a herhangi bir şey
-yaz → sana "Id" olarak sayı verir (örn. `123456789`). O sayıyı
-`config.json` içindeki `"allowed_user_ids": []` listesine ekle:
-`"allowed_user_ids": [123456789]`. Yakınlarının ID'lerini de aynı şekilde
-ekleyebilirsin.
+**Yeni kullanıcı eklemek çok kolay (bot çalışırken):**
+1. Ekleyeceğin kişi bota herhangi bir şey yazar → ona "⛔ ... Senin ID'n:
+   123456789" cevabı gider (ya da kişi sana `/kimlik` çıktısını atar)
+2. Sen bota yazarsın: `/ekle 123456789`
+3. Bitti — kişi artık botu kullanabilir ✅
 
-**Yol B (bot çalışınca):** Bota herhangi bir şey yaz → "⛔ Bu bot sana
-kapalı... Senin ID'n: 123456789" cevabı gelir. O sayıyı config'e ekle,
-botu yeniden başlat (`./run.sh`).
+Liste `config.json`'a **kalıcı** yazılır; bot yeniden başlasa da durur.
+Diğer komutlar: `/sil <id>` (yetkiyi kaldır), `/liste` (yetkilileri göster).
+Bu komutları sadece bot sahibi (`admin_user_ids`) kullanabilir.
+
+Yeni kullanıcıyı elle de ekleyebilirsin: `config.json > allowed_user_ids`
+listesine ID'yi yaz.
 
 ### 3) Çalıştır
 
@@ -153,7 +156,7 @@ isteyebilir; şifresiz kullanmak istersen (isteğe bağlı, riski senin):
 | "LLM'e ulaşılamadı" | İnternet çıkışı; `llm` ayarları |
 | Ücretsiz model "rate limit" hatası | Günlük limit doldu; ertesi gün ya da ücretli model |
 | Bot cevap vermiyor | `journalctl -u ajantik -f` ya da `./run.sh` çıktısı |
-| "⛔ Bu bot sana kapalı" | ID'ni `allowed_user_ids`'e ekle, yeniden başlat |
+| "⛔ Bu bot sana kapalı" | ID bot sahibine iletilmeli; sahibi `/ekle <id>` yazar |
 | GitHub'a push hata veriyor | `github_connect` ile tekrar bağlan; token süresi bitmiş olabilir |
 | Dosya gönderilemedi | 50MB sınırı; dosyayı böl ya da linkle |
 | Onay butonu geldi, dokunmadım | 5 dk sonra otomatik reddedilir |

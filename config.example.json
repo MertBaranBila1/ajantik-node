@@ -11,6 +11,8 @@
 
   "allowed_user_ids": [],
 
+  "admin_user_ids": [],
+
   "workspace": "./workspace",
 
   "allowed_dirs": [],

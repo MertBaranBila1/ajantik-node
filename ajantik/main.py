@@ -10,7 +10,7 @@ import sys
 import time
 
 from . import __version__
-from .config import load_config
+from .config import load_config, save_allowed_ids
 from .runner import TaskRunner
 from .telegram_api import TelegramAPI, TelegramError
 from .tools import setup_github_token
@@ -29,6 +29,9 @@ HELP_TEXT = (
     "/status — kuyruk ve sistem durumu\n"
     "/reset — konusma hafizasini sifirla\n"
     "/kimlik — Telegram ID'ni gosterir\n"
+    "/ekle <id> — (sadece bot sahibi) yeni kullanici yetkilendirir\n"
+    "/sil <id> — (sadece bot sahibi) kullaniciyi yetkisiz birakir\n"
+    "/liste — yetkili kullanicilar\n"
     "\n"
     "Ornek: \"workspace'deki raporlari zip'le gonder\" veya "
     "\"sunucu durumunu soyle\"."
@@ -52,6 +55,52 @@ def _cmd_of(text):
     if not text:
         return ""
     return (text.split()[0] or "").split("@")[0].lower()
+
+
+def _admin_command(text, cfg, allowed, admins, user_id):
+    """Bot sahibinin kullanici yonetim komutlari.
+
+    Donus: cevap metni; komut degilse None.
+    /ekle <id> — yetkilendir (config'e kalici yazar)
+    /sil <id>  — yetkiyi kaldir
+    /liste     — yetkilileri listele
+    """
+    parts = text.split()
+    cmd = (parts[0] if parts else "").split("@")[0].lower()
+    if cmd not in ("/ekle", "/sil", "/liste"):
+        return None
+    if user_id not in admins:
+        return "⛔ Bu komut sadece bot sahibine acik."
+    if cmd == "/liste":
+        if not allowed:
+            return "Yetkili kullanici yok."
+        satirlar = []
+        for i in sorted(allowed):
+            etiket = " (admin)" if i in admins else ""
+            satirlar.append("- %d%s" % (i, etiket))
+        return "Yetkili kullanicilar:\n" + "\n".join(satirlar)
+    if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+        return "Kullanim: /ekle <telegram_id>  ya da  /sil <telegram_id>\n(Kisinin ID'sini ogrenmesi icin ona /kimlik yazdir.)"
+    new_id = int(parts[1])
+    if cmd == "/ekle":
+        if new_id in allowed:
+            return "%d zaten yetkili." % new_id
+        allowed.add(new_id)
+        try:
+            save_allowed_ids(cfg, allowed)
+            return "✅ %d eklendi; artik botu kullanabilir." % new_id
+        except Exception as e:
+            return "⚠️ Eklendi ama config'e yazilamadi (%s); botu yeniden baslatmadan once elle ekle." % e
+    if new_id not in allowed:
+        return "%d listede yok." % new_id
+    if new_id in admins:
+        return "Kendini (admin) listeden cikaramazsin."
+    allowed.discard(new_id)
+    try:
+        save_allowed_ids(cfg, allowed)
+        return "❌ %d cikarildi; artık botu kullanamaz." % new_id
+    except Exception as e:
+        return "⚠️ Cikarildi ama config'e yazilamadi (%s)." % e
 
 
 def _download_incoming(tg, msg, workspace):
@@ -93,6 +142,12 @@ def main(argv=None):
 
     runner = TaskRunner(cfg, tg)
     allowed = set(cfg.get("allowed_user_ids") or [])
+    admins = set(cfg.get("admin_user_ids") or [])
+    if not admins and len(allowed) == 1:
+        # Tek yetkili kullanici varsa o, bot sahibi sayilir
+        admins = set(allowed)
+    if not admins:
+        log.warning("admin_user_ids bos; /ekle /sil komutlari kullanilamaz.")
 
     # Config'e elle yazilmis GitHub token'i varsa kur (github_connect alternatifi)
     if cfg.get("github_token"):
@@ -163,6 +218,12 @@ def main(argv=None):
                     "(bu sayiyi ona ilet.)",
                 )
                 log.info("Yetkisiz erisim: user_id=%s username=%s", user_id, user.get("username"))
+                continue
+
+            # Bot sahibi komutlari: /ekle /sil /liste
+            cevap = _admin_command(text, cfg, allowed, admins, user_id)
+            if cevap is not None:
+                tg.send_message(chat_id, cevap)
                 continue
 
             if cmd == "/start":
