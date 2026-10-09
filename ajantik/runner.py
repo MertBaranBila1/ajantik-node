@@ -11,6 +11,7 @@ import threading
 import time
 
 from .agent import AgentSession
+from .approvals import ApprovalManager
 from .llm import LLMClient, LLMError
 from .tools import sys_info_str
 
@@ -22,6 +23,7 @@ class TaskRunner(object):
         self.cfg = cfg
         self.tg = tg
         self.llm = LLMClient(cfg.get("llm"))
+        self.approvals = ApprovalManager(tg)
         self.q = queue.Queue()
         self.sessions = {}  # chat_id -> history listesi
         self._sessions_lock = threading.Lock()
@@ -81,7 +83,7 @@ class TaskRunner(object):
         if not mid:
             mid = None
         history = self._history(chat_id)
-        agent = AgentSession(self.cfg, self.llm, self.tg, chat_id, history)
+        agent = AgentSession(self.cfg, self.llm, self.tg, chat_id, history, approvals=self.approvals)
         state = {"last": 0.0}
 
         def status(text):
@@ -111,4 +113,6 @@ class TaskRunner(object):
     # ------------------------------------------------------------------ #
     def status_text(self):
         busy = "meşgul" if self.queue_len() > 0 else "boşta"
-        return "Kuyruk: %d iş (%s)\n\n%s" % (self.queue_len(), busy, sys_info_str())
+        pending = self.approvals.pending_count()
+        onay = ("\n⏳ Cevap beklenen onay sorusu: %d (butonla yanıtla!)" % pending) if pending else ""
+        return "Kuyruk: %d iş (%s)%s\n\n%s" % (self.queue_len(), busy, onay, sys_info_str())

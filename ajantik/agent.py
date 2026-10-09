@@ -57,7 +57,7 @@ def parse_tool_call(text):
 class AgentSession(object):
     """Bir Telegram sohbeti icin gorev oturumu."""
 
-    def __init__(self, cfg, llm, tg, chat_id, history):
+    def __init__(self, cfg, llm, tg, chat_id, history, approvals=None):
         self.cfg = cfg
         self.llm = llm
         self.chat_id = chat_id
@@ -66,6 +66,7 @@ class AgentSession(object):
         self.max_iterations = int((cfg.get("agent") or {}).get("max_iterations") or 15)
         self.max_history = int((cfg.get("agent") or {}).get("max_history_messages") or 30)
         self.ctx = toolmod.ToolContext(cfg, tg, chat_id)
+        self.ctx.approvals = approvals
 
     # ------------------------------------------------------------------ #
     def run(self, user_text):

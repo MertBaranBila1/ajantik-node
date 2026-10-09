@@ -34,9 +34,11 @@ class ToolContext(object):
         agent = cfg.get("agent") or {}
         self.cmd_timeout = int(agent.get("command_timeout_seconds") or 180)
         self.block_dangerous = bool(agent.get("block_dangerous_commands", True))
+        self.confirm_installs = bool(agent.get("confirm_installs", True))
         self.ssh_hosts = cfg.get("ssh_hosts") or {}
         self.max_download_mb = int(cfg.get("max_download_mb") or 200)
-        self.status_cb = None  # runner tarafindan set edilir
+        self.status_cb = None   # runner tarafindan set edilir
+        self.approvals = None   # runner tarafindan set edilir (ApprovalManager)
 
     def status(self, text):
         if self.status_cb:
@@ -105,6 +107,31 @@ def sys_info_str():
 
 
 # ---------------------------------------------------------------------- #
+# Onay gerektiren komutlar (kullaniciya Evet/Hayir sorulur)
+# ---------------------------------------------------------------------- #
+
+CONFIRM_PATTERNS = [
+    r"\bsudo\b",
+    r"\bapt(?:-get)?\s+(?:install|remove|purge|upgrade|update|full-upgrade)\b",
+    r"\bdpkg\s+(?:-i|--install|--remove|--purge)\b",
+    r"\bpip3?\s+install\b",
+    r"\bnpm\s+(?:install|i|add)\b",
+    r"\bpnpm\s+(?:install|add)\b",
+    r"\byarn\s+(?:add|install)\b",
+    r"\bsnap\s+(?:install|remove)\b",
+    r"\bgem\s+install\b",
+    r"\bcargo\s+install\b",
+    r"\bmake\s+install\b",
+    r"\bsystemctl\s+(?:start|stop|restart|reload|enable|disable)\b",
+]
+_CONFIRM_RE = [re.compile(p, re.IGNORECASE) for p in CONFIRM_PATTERNS]
+
+
+def _needs_confirm(cmd):
+    return any(rx.search(cmd or "") for rx in _CONFIRM_RE)
+
+
+# ---------------------------------------------------------------------- #
 # Araclar
 # ---------------------------------------------------------------------- #
 
@@ -114,6 +141,17 @@ def tool_run_command(args, ctx):
         return "HATA: 'command' argumani gerekli."
     if ctx.block_dangerous and safety.is_dangerous(cmd):
         return "RED: Bu komut guvenlik filtresine takildi (sistem yikici komut)."
+    if ctx.confirm_installs and ctx.approvals and _needs_confirm(cmd):
+        verdict = ctx.approvals.request(
+            ctx.chat_id,
+            "⚠️ Ajan şu komutu çalıştırmak istiyor. Onaylıyor musun?\n\n"
+            + truncate(cmd, 1200),
+            timeout=300,
+        )
+        if verdict is None:
+            return "RED: Onay zamanaşımı (5 dk) — komut çalıştırılmadı."
+        if not verdict:
+            return "RED: Kullanıcı bu komutu onaylamadı."
     _audit_log(ctx, cmd)
     ctx.status("Komut calistiriliyor: " + truncate(cmd, 80))
     try:
@@ -389,6 +427,182 @@ def tool_sys_info(args, ctx):
 
 
 # ---------------------------------------------------------------------- #
+# GitHub baglantisi (device flow: kullanici telefonda kod girer)
+# ---------------------------------------------------------------------- #
+
+GH_CLIENT_ID = "178c6fc778ccc68e1d6a"  # gh CLI'nin herkese acik OAuth client id'si
+GH_TOKEN_FILENAME = ".github_token"
+
+
+def _gh_token_path(workspace):
+    return os.path.join(workspace, GH_TOKEN_FILENAME)
+
+
+def _gh_load_token(workspace):
+    path = _gh_token_path(workspace)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            tok = f.read().strip()
+        return tok or None
+    except OSError:
+        return None
+
+
+def _gh_login(token):
+    """Token'i dogrular; kullanici adini ya da None dondurur."""
+    try:
+        r = requests.get(
+            "https://api.github.com/user",
+            headers={"Authorization": "token " + token, "Accept": "application/vnd.github+json"},
+            timeout=30,
+        )
+        if r.status_code != 200:
+            return None
+        return (r.json() or {}).get("login")
+    except Exception:
+        return None
+
+
+def _git_setup_credentials(token):
+    """git push/pull icin credential store kurar (~/.git-credentials)."""
+    try:
+        subprocess.run(
+            ["git", "config", "--global", "credential.helper", "store"],
+            capture_output=True, timeout=30,
+        )
+    except Exception:
+        pass
+    cred_path = os.path.expanduser("~/.git-credentials")
+    line = "https://x-access-token:%s@github.com" % token
+    lines = []
+    try:
+        if os.path.exists(cred_path):
+            with open(cred_path, "r", encoding="utf-8") as f:
+                lines = [ln.strip() for ln in f if ln.strip() and "@github.com" not in ln]
+    except OSError:
+        lines = []
+    lines.append(line)
+    try:
+        with open(cred_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        os.chmod(cred_path, 0o600)
+    except OSError:
+        pass
+
+
+def setup_github_token(cfg, token):
+    """Config'de verilen token'i diske yazar + git credential kurar (main'de cagirilir)."""
+    workspace = cfg["workspace"]
+    os.makedirs(workspace, exist_ok=True)
+    try:
+        with open(_gh_token_path(workspace), "w", encoding="utf-8") as f:
+            f.write(token.strip())
+        os.chmod(_gh_token_path(workspace), 0o600)
+    except OSError:
+        pass
+    _git_setup_credentials(token.strip())
+
+
+def tool_github_connect(args, ctx):
+    """GitHub device-flow baglantisi: kod gonderir, kullanicinin girmesini bekler."""
+    token = _gh_load_token(ctx.workspace)
+    if token:
+        login = _gh_login(token)
+        if login:
+            return (
+                "Zaten bagli: %s. (Baska hesaba gecmek istersen once bana soyle; "
+                "token'i temizlerim.)" % login
+            )
+    try:
+        r = requests.post(
+            "https://github.com/login/device/code",
+            data={"client_id": GH_CLIENT_ID, "scope": "repo"},
+            headers={"Accept": "application/json"},
+            timeout=30,
+        )
+        r.raise_for_status()
+        d = r.json()
+    except Exception as e:
+        return "HATA: GitHub'dan baglanti kodu alinamadi: %s" % e
+    user_code = d.get("user_code") or "?"
+    uri = d.get("verification_uri") or "https://github.com/login/device"
+    interval = max(3, int(d.get("interval") or 5))
+    expires = int(d.get("expires_in") or 900)
+    device_code = d.get("device_code") or ""
+    ctx.tg.send_message(
+        ctx.chat_id,
+        "🔐 GitHub bağlantısı:\n"
+        "1) Şu adresi aç (telefonundan olur): %s\n"
+        "2) Bu kodu gir: %s\n"
+        "Kod %d dakika geçerli. Girdikten sonra burada otomatik devam edeceğim..."
+        % (uri, user_code, max(1, expires // 60)),
+    )
+    deadline = time.time() + expires
+    while time.time() < deadline:
+        time.sleep(interval)
+        try:
+            r = requests.post(
+                "https://github.com/login/oauth/access_token",
+                data={
+                    "client_id": GH_CLIENT_ID,
+                    "device_code": device_code,
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                },
+                headers={"Accept": "application/json"},
+                timeout=30,
+            )
+            d = r.json()
+        except Exception:
+            continue
+        if "access_token" in d and d.get("access_token"):
+            token = d["access_token"]
+            login = _gh_login(token)
+            if not login:
+                return "HATA: token alindi ama dogrulanamadi; tekrar dene."
+            try:
+                with open(_gh_token_path(ctx.workspace), "w", encoding="utf-8") as f:
+                    f.write(token)
+                os.chmod(_gh_token_path(ctx.workspace), 0o600)
+            except OSError:
+                pass
+            _git_setup_credentials(token)
+            return (
+                "GitHub baglandi: %s\nArtik git clone/push (https) komutlari "
+                "calisir. Ornek: git clone https://github.com/<kullanici>/<repo>.git" % login
+            )
+        err = d.get("error")
+        if err == "authorization_pending":
+            continue
+        if err == "slow_down":
+            interval += 5
+            continue
+        return "HATA: GitHub baglantisi kurulamadi (%s). Kullanici kodu girmeden mi dendi, tekrar dene." % err
+    return "HATA: Sure doldu, kod girilmedi gibi gorunuyor. Kullanici hazirsa tekrar dene."
+
+
+def tool_github_status(args, ctx):
+    token = _gh_load_token(ctx.workspace)
+    if not token:
+        return "GitHub bagli DEGIL. Once github_connect aracini kullan."
+    login = _gh_login(token)
+    if not login:
+        return "Token gecersiz gorunuyor. Yeniden baglamak icin github_connect kullan (once eski token'i sil)."
+    return "GitHub bagli: %s" % login
+
+
+def tool_ask_user(args, ctx):
+    question = args.get("question")
+    if not question or not isinstance(question, str):
+        return "HATA: 'question' argumani gerekli."
+    if not ctx.approvals:
+        return "HATA: onay sistemi su an kullanilamiyor."
+    verdict = ctx.approvals.request(ctx.chat_id, "❓ " + question, timeout=600)
+    if verdict is None:
+        return "Kullanici cevaplamadi (zaman asimi). Durumu kullaniciya anlat; varsayimla ilerleme."
+    return "Kullanici cevabi: " + ("EVET" if verdict else "HAYIR")
+
+
+# ---------------------------------------------------------------------- #
 # Kayit + yardimcilar
 # ---------------------------------------------------------------------- #
 
@@ -459,6 +673,21 @@ TOOLS = {
         "fn": tool_sys_info,
         "desc": "Bilgisayarin durumu: RAM, disk, yuk, acik kalma suresi.",
         "args": "{}",
+    },
+    "github_connect": {
+        "fn": tool_github_connect,
+        "desc": "GitHub hesabina baglanir: kullaniciya bir kod gonderir, girmesini bekler. Sonra git clone/push calisir. Site islerinden ONCE bir kez kullan.",
+        "args": "{}",
+    },
+    "github_status": {
+        "fn": tool_github_status,
+        "desc": "GitHub baglantisinin olup olmadigini kontrol eder.",
+        "args": "{}",
+    },
+    "ask_user": {
+        "fn": tool_ask_user,
+        "desc": "Kullaniciya Evet/Hayir sorusu sorar (onemli/onay gerektiren kararlarda kullan).",
+        "args": '{"question": "<soru>"}',
     },
 }
 

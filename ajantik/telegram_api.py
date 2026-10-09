@@ -7,6 +7,7 @@ telebot vb. kutuphaneler yerine ham API kullaniyoruz:
 - baglilik tek paket: requests.
 """
 
+import json
 import os
 import time
 
@@ -64,8 +65,32 @@ class TelegramAPI(object):
         return self._call("getMe")
 
     def get_updates(self, offset=0, timeout=30):
-        data = {"offset": offset, "timeout": timeout}
+        data = {
+            "offset": offset,
+            "timeout": timeout,
+            "allowed_updates": json.dumps(["message", "callback_query"]),
+        }
         return self._call("getUpdates", data=data, timeout=timeout + 25)
+
+    def send_message_with_buttons(self, chat_id, text, buttons):
+        """Inline klavyeyle mesaj gonderir. buttons: [(etiket, callback_data), ...]"""
+        kb = {"inline_keyboard": [[{"text": lbl, "callback_data": dat} for lbl, dat in buttons]]}
+        data = {
+            "chat_id": chat_id,
+            "text": truncate(text, 3900),
+            "reply_markup": json.dumps(kb),
+        }
+        result = self._call("sendMessage", data=data)
+        return (result or {}).get("message_id")
+
+    def answer_callback(self, callback_id, text=None):
+        data = {"callback_query_id": callback_id}
+        if text:
+            data["text"] = truncate(text, 190)
+        try:
+            self._call("answerCallbackQuery", data=data)
+        except TelegramError:
+            pass
 
     def send_message(self, chat_id, text, reply_to=None):
         """Mesaj gonderir (4096 karakteri asarsa boler). Ilk mesaj id'si doner."""

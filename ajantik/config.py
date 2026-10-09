@@ -22,7 +22,9 @@ DEFAULTS = {
         "command_timeout_seconds": 180,
         "max_history_messages": 30,
         "block_dangerous_commands": True,
+        "confirm_installs": True,
     },
+    "github_token": "",
     "max_download_mb": 200,
     "personality": "",
 }

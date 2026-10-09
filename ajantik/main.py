@@ -13,6 +13,7 @@ from . import __version__
 from .config import load_config
 from .runner import TaskRunner
 from .telegram_api import TelegramAPI, TelegramError
+from .tools import setup_github_token
 from .utils import fmt_size
 
 log = logging.getLogger("ajantik")
@@ -92,6 +93,15 @@ def main(argv=None):
 
     runner = TaskRunner(cfg, tg)
     allowed = set(cfg.get("allowed_user_ids") or [])
+
+    # Config'e elle yazilmis GitHub token'i varsa kur (github_connect alternatifi)
+    if cfg.get("github_token"):
+        try:
+            setup_github_token(cfg, cfg["github_token"])
+            log.info("Config'deki GitHub token'i kurulu (git push hazir).")
+        except Exception:
+            log.exception("GitHub token kurulumu basarisiz")
+
     log.info(
         "Ajantik Node v%s basladi: @%s | izinli kullanici: %s | workspace: %s",
         __version__,
@@ -115,6 +125,16 @@ def main(argv=None):
 
         for upd in updates:
             offset = max(offset, (upd.get("update_id") or 0) + 1)
+
+            # Onay butonlari (Evet/Hayir) — gorev thread'lerini uyandirir
+            cb = upd.get("callback_query")
+            if cb:
+                tg.answer_callback(cb.get("id"))
+                cb_user = (cb.get("from") or {}).get("id")
+                if cb_user in allowed:
+                    runner.approvals.resolve(cb.get("data") or "", cb_user)
+                continue
+
             msg = upd.get("message")
             if not msg:
                 continue
