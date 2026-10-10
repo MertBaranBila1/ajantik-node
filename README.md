@@ -135,7 +135,7 @@ dosya/uygulama işleri yine laptop ister.
 
 **Kurulum (bir kere, ~5 dk):** `ajantik-cloud` reposunu Netlify'a bağla,
 3 anahtarı gir, çıkan adresi laptop'un `config.json`'ına yaz. Detaylı adımlar:
-[github.com/MertBaranBila1/ajantik-cloud](https://github.com/MertBaranBila1/ajantik-cloud)
+[github.com/baran1248/ajantik-cloud](https://github.com/baran1248/ajantik-cloud)
 (repo README'sinde).
 
 Elle geçiş komutları (laptop'ta):
