@@ -114,7 +114,7 @@ EOF
             if sudo install -m 644 "$SRVFILE" /etc/systemd/system/ajantik.service 2>/dev/null \
                && sudo systemctl daemon-reload \
                && sudo systemctl enable ajantik >/dev/null 2>&1 \
-               && sudo systemctl start ajantik; then
+               && sudo systemctl restart ajantik; then
                 sleep 2
                 if systemctl is-active --quiet ajantik; then
                     echo "   OK: Servis kuruldu ve CALISIYOR."
