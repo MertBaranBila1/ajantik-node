@@ -32,7 +32,7 @@ class ToolContext(object):
         self.workspace = cfg["workspace"]
         self.allowed_dirs = cfg.get("allowed_dirs") or []
         agent = cfg.get("agent") or {}
-        self.cmd_timeout = int(agent.get("command_timeout_seconds") or 180)
+        self.cmd_timeout = int(agent.get("command_timeout_seconds") or 3600)
         self.block_dangerous = bool(agent.get("block_dangerous_commands", True))
         self.confirm_installs = bool(agent.get("confirm_installs", True))
         self.ssh_hosts = cfg.get("ssh_hosts") or {}

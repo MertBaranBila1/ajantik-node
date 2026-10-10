@@ -63,7 +63,7 @@ class AgentSession(object):
         self.chat_id = chat_id
         self.history = history  # ortak liste: [{"role":..,"content":..}, ...]
         self.system_prompt = build_system_prompt(cfg)
-        self.max_iterations = int((cfg.get("agent") or {}).get("max_iterations") or 15)
+        self.max_iterations = int((cfg.get("agent") or {}).get("max_iterations") or 200)
         self.max_history = int((cfg.get("agent") or {}).get("max_history_messages") or 30)
         self.ctx = toolmod.ToolContext(cfg, tg, chat_id)
         self.ctx.approvals = approvals
@@ -118,9 +118,10 @@ class AgentSession(object):
             )
 
         final = (
-            "Bu gorev cok uzun surdu (%d adim) ve yarida kestim. Simdiye kadarki "
-            "adimlar: %s. Istersen gorevi kucuk parcalara bolup tekrar dene."
-            % (self.max_iterations, ", ".join(steps))
+            "Bu gorev cok uzun surdu (%d adim limitine ulastim) ve burada durdum. "
+            "Simdiye kadarki adimlar: %s. Devam etmemi istersen sadece "
+            "'devam et' yaz; kaldigim yerden surerim."
+            % (self.max_iterations, ", ".join(steps[-40:]))
         )
         self._remember(user_text, final)
         return final

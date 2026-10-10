@@ -23,7 +23,7 @@ class LLMClient(object):
         self.api_key = conf.get("api_key") or ""
         self.model = conf.get("model") or ""
         self.temperature = conf.get("temperature", 0.2)
-        self.timeout = int(conf.get("timeout_seconds") or 180)
+        self.timeout = int(conf.get("timeout_seconds") or 600)
         self.session = requests.Session()
         if self.api_key:
             self.session.headers["Authorization"] = "Bearer " + self.api_key

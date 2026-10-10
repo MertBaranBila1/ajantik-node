@@ -1,62 +1,55 @@
 {
-  "telegram_token": "",
+    "telegram_token":  "",
+    "llm":  {
+                "base_url":  "https://generativelanguage.googleapis.com/v1beta/openai",
+                "api_key":  "",
+                "model":  "gemini-flash-latest",
+                "temperature":  0.2,
+                "timeout_seconds":  600
+            },
+    "active_profile":  "ornk-gemini",
+    "llm_profiles":  {
+                         "ornk-gemini":  {
+                                             "base_url":  "https://generativelanguage.googleapis.com/v1beta/openai",
+                                             "api_key":  "GOOGLE_AI_STUDIO_ANAHTARI",
+                                             "model":  "gemini-flash-latest",
+                                             "temperature":  0.2,
+                                             "timeout_seconds":  600
+                                         },
+                         "ornk-openrouter":  {
+                                                 "base_url":  "https://openrouter.ai/api/v1",
+                                                 "api_key":  "OPENROUTER_ANAHTARI",
+                                                 "model":  "bir-model:free",
+                                                 "temperature":  0.2,
+                                                 "timeout_seconds":  600
+                                             }
+                     },
+    "allowed_user_ids":  [
 
-  "llm": {
-    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-    "api_key": "",
-    "model": "gemini-flash-latest",
-    "temperature": 0.2,
-    "timeout_seconds": 240
-  },
+                         ],
+    "admin_user_ids":  [
 
-  "active_profile": "ornk-gemini",
+                       ],
+    "workspace":  "./workspace",
+    "allowed_dirs":  [
 
-  "llm_profiles": {
-    "ornk-gemini": {
-      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-      "api_key": "GOOGLE_AI_STUDIO_ANAHTARI",
-      "model": "gemini-flash-latest",
-      "temperature": 0.2,
-      "timeout_seconds": 240
-    },
-    "ornk-openrouter": {
-      "base_url": "https://openrouter.ai/api/v1",
-      "api_key": "OPENROUTER_ANAHTARI",
-      "model": "bir-model:free",
-      "temperature": 0.2,
-      "timeout_seconds": 180
-    }
-  },
-
-  "allowed_user_ids": [],
-
-  "admin_user_ids": [],
-
-  "workspace": "./workspace",
-
-  "allowed_dirs": [],
-
-  "ssh_hosts": {
-    "ornk-sunucu": {
-      "user": "root",
-      "host": "192.168.1.50",
-      "port": 22
-    }
-  },
-
-  "agent": {
-    "max_iterations": 15,
-    "command_timeout_seconds": 180,
-    "max_history_messages": 30,
-    "block_dangerous_commands": true,
-    "confirm_installs": true
-  },
-
-  "github_token": "",
-
-  "max_download_mb": 200,
-
-  "personality": "",
-
-  "cloud_webhook_url": ""
+                     ],
+    "ssh_hosts":  {
+                      "ornk-sunucu":  {
+                                          "user":  "root",
+                                          "host":  "192.168.1.50",
+                                          "port":  22
+                                      }
+                  },
+    "agent":  {
+                  "max_iterations":  200,
+                  "command_timeout_seconds":  3600,
+                  "max_history_messages":  30,
+                  "block_dangerous_commands":  true,
+                  "confirm_installs":  true
+              },
+    "github_token":  "",
+    "max_download_mb":  200,
+    "personality":  "",
+    "cloud_webhook_url":  ""
 }
